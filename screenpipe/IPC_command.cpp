@@ -13,6 +13,7 @@
 #include <sys/shm.h>
 #include <stdlib.h>  
 #include <stdio.h>
+#include <string>
 #include <opencv2/opencv.hpp>
 // #include "cv.h"  
 #include "opencv2/highgui/highgui.hpp"
@@ -36,6 +37,7 @@ struct shared_use_st
     int save_flag; 
 };
 
+
 int main(int argc, char const *argv[])
 {
     void *shm = NULL;
@@ -57,17 +59,18 @@ int main(int argc, char const *argv[])
     printf("\n********** Memory sharing started, attached at blablabal %X **********\n", shm);
 
     shared = (struct shared_use_st*)shm; 
-    shared->written = 0;
+    shared->written = 1;
     shared->pause = 0;
     shared->zmq_flag = 0;  
-    shared->save_flag = 0;
+    shared->save_flag = 1;
 
 
     // Setup zmq
+    std::string address = "tcp://*:5555";
     static zmq::context_t context(1);
     static zmq::socket_t socket(context, ZMQ_PAIR);
-    printf("binding to socket\n");
-    socket.bind("tcp://*:5555");
+    std::cout << "binding to socket " << address << std::endl;
+    socket.bind(address);
     printf("done\n");
     TorcsData torcs_data;
     unsigned char image[resize_width*resize_height * 3];
@@ -81,6 +84,33 @@ int main(int argc, char const *argv[])
     IplImage* out_green = cvCreateImage(cvSize(resize_width,resize_height), IPL_DEPTH_8U, 1);
     IplImage* out_blue = cvCreateImage(cvSize(resize_width,resize_height), IPL_DEPTH_8U, 1);
 
+    for (int h = 0; h < image_height; h++) {
+        for (int w = 0; w < image_width; w++) {
+            screenRGB->imageData[(h*image_width+w)*3+2]=shared->data[((image_height-h-1)*image_width+w)*3+0];
+            screenRGB->imageData[(h*image_width+w)*3+1]=shared->data[((image_height-h-1)*image_width+w)*3+1];
+            screenRGB->imageData[(h*image_width+w)*3+0]=shared->data[((image_height-h-1)*image_width+w)*3+2];
+        }
+    }
+
+    cvResize(screenRGB, resizeRGB);
+    cvSplit(resizeRGB, out_blue, out_green, out_red, NULL);
+
+    torcs_data.clear_width();
+    torcs_data.clear_height();
+    torcs_data.clear_red();
+    torcs_data.clear_green();
+    torcs_data.clear_blue();
+    torcs_data.clear_save_flag();
+    torcs_data.add_red((const void*)out_red->imageData, (size_t) resize_width * resize_height);
+    torcs_data.add_green((const void*)out_green->imageData, (size_t) resize_width * resize_height);
+    torcs_data.add_blue((const void*)out_blue->imageData, (size_t) resize_width * resize_height);
+    torcs_data.add_width(resize_width);
+    torcs_data.add_height(resize_height);
+    torcs_data.add_save_flag(shared->save_flag);
+
+    cvSaveImage("/tmp/x.jpg", resizeRGB);
+
+    /*
     while (true) {    
 
         if (shared->written == 1) {
@@ -117,10 +147,10 @@ int main(int argc, char const *argv[])
             string serialized_data;
             torcs_data.SerializeToString(&serialized_data);
 
-            /*zmq::message_t request;
+            zmq::message_t request;
             socket.recv(&request);
             std::string replyMessage = std::string(static_cast<char *>(request.data()), request.size());
-            //std::cout << "Recived from client: " + replyMessage << std::endl;*/
+            td::cout << "Recived from client: " + replyMessage << std::endl;
 
             zmq::message_t reply(serialized_data.size());
             // std::cout << "checked OK!  2" << std::endl;
@@ -158,6 +188,7 @@ int main(int argc, char const *argv[])
         fprintf(stderr, "shmctl(IPC_RMID) failed\n");  
         exit(EXIT_FAILURE);  
     }
+    */
     printf("\n********** Memory sharing stopped. Good Bye! **********\n");  
 
     return 0;
