@@ -66,12 +66,12 @@ int main(int argc, char const *argv[])
 
 
     // Setup zmq
-    std::string address = "tcp://*:5555";
-    static zmq::context_t context(1);
-    static zmq::socket_t socket(context, ZMQ_PAIR);
-    std::cout << "binding to socket " << address << std::endl;
-    socket.bind(address);
-    printf("done\n");
+    // std::string address = "tcp://*:5555";
+    // static zmq::context_t context(1);
+    // static zmq::socket_t socket(context, ZMQ_PAIR);
+    // std::cout << "binding to socket " << address << std::endl;
+    // socket.bind(address);
+    // printf("done\n");
     TorcsData torcs_data;
     unsigned char image[resize_width*resize_height * 3];
 
